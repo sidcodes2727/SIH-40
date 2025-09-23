@@ -3,9 +3,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 
 function Chatbot({ chatOpen, setChatOpen }) {
+    const CONCISE_INSTRUCTIONS = "You are floatCHAT. Answer very concisely (1–2 sentences). Use ARGO data when provided. Include numbers with units. If uncertain, say so briefly.";
     const [messages, setMessages] = useState([
         { id: 1, role: 'assistant', content: 'Hi! I\'m floatCHAT. Ask me about oceanographic data, ARGO floats, or maps.' }
     ]);
+
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -32,9 +34,11 @@ function Chatbot({ chatOpen, setChatOpen }) {
         setLoading(true);
         try {
             const endpoint = hasContext ? 'http://localhost:3000/ai/chat_context' : 'http://localhost:3000/ai/chat';
+            // Prepend concise instruction message so the model keeps answers short
+            const baseMsgs = [{ role: 'user', content: CONCISE_INSTRUCTIONS }, ...messages, userMsg];
             const payload = hasContext
-                ? { messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })), lat: parseFloat(lat), lon: parseFloat(lon), rangeDeg: parseFloat(rangeDeg) }
-                : { messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })) };
+                ? { messages: baseMsgs.map(m => ({ role: m.role, content: m.content })), lat: parseFloat(lat), lon: parseFloat(lon), rangeDeg: parseFloat(rangeDeg) }
+                : { messages: baseMsgs.map(m => ({ role: m.role, content: m.content })) };
             const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -44,7 +48,10 @@ function Chatbot({ chatOpen, setChatOpen }) {
             if (!res.ok) {
                 throw new Error(data?.error || 'Failed to get response');
             }
-            const reply = (data?.text || '').trim() || 'I\'m not sure how to answer that yet.';
+            const raw = (data?.text || '').trim() || 'I\'m not sure how to answer that yet.';
+            // Trim to first 2 sentences or 160 chars to keep answers precise
+            const sentences = raw.split(/(?<=[.!?])\s+/).slice(0, 2).join(' ');
+            const reply = sentences.length > 0 ? sentences.slice(0, 160) : raw.slice(0, 160);
             setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: reply }]);
         } catch (e) {
             setError(e.message || 'Something went wrong');
