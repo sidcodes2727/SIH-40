@@ -1,0 +1,23 @@
+{
+  "name": "sih-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "create:table": "node create_table.js",
+    "insert:argo": "node insert_argo.js",
+    "read:variables": "node read_variables.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "netcdfjs": "^3.0.0",
+    "pg": "^8.16.3"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "name": "react-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "nodemon src/help.js",
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@deck.gl/aggregation-layers": "^9.1.14",
+    "@deck.gl/core": "^9.1.14",
+    "@deck.gl/layers": "^9.1.14",
+    "@deck.gl/react": "^9.1.14",
+    "@supabase/supabase-js": "^2.57.4",
+    "@tailwindcss/vite": "^4.1.11",
+    "d3": "^7.9.0",
+    "deck.gl": "^9.1.14",
+    "esbuild": "^0.25.10",
+    "framer-motion": "^12.23.12",
+    "leaflet": "^1.9.4",
+    "lucide": "^0.536.0",
+    "lucide-react": "^0.536.0",
+    "maplibre-gl": "^5.7.3",
+    "nodemon": "^3.1.10",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-hook-form": "^7.61.1",
+    "react-leaflet": "^5.0.0",
+    "react-map-gl": "^8.0.4",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.7.1",
+    "react-toastify": "^11.0.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.30.1",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.30.1",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.3.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.11",
+    "vite": "^7.1.7"
+  }
+}
