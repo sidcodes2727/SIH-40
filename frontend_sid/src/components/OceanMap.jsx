@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Map, { NavigationControl } from 'react-map-gl/maplibre';
 import DeckGL from '@deck.gl/react';
 import { ScatterplotLayer } from '@deck.gl/layers';
+import { ArrowLeft } from 'lucide-react';
 import maplibregl from 'maplibre-gl';
 
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json';
@@ -20,7 +21,7 @@ const fallbackData = [
   { id: 3, depth: 15, pressure: 7, temperature: 30 },
 ];
 
-export default function FlexiblePlot() {
+export default function OceanMap({ setActivePage }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const [data, setData] = useState([]);
   const [hoverInfo, setHoverInfo] = useState(null); // {x,y,coordinate,object}
@@ -96,7 +97,10 @@ export default function FlexiblePlot() {
         return [r, g, b];
       },
       onHover: (info) => {
-        if (!info || !info.coordinate) { setHoverInfo(null); return; }
+        if (!info || !info.coordinate || !info.object) { 
+          setHoverInfo(null); 
+          return; 
+        }
         setHoverInfo({ x: info.x, y: info.y, coordinate: info.coordinate, object: info.object });
       },
     }),
@@ -104,6 +108,15 @@ export default function FlexiblePlot() {
 
   return (
     <div style={{ width: '100%', height: '100%', overflow: 'hidden', position: 'relative' }}>
+      {/* Back to Home Button */}
+      <button
+        onClick={() => setActivePage('Home')}
+        className="absolute top-4 left-4 z-10 flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md hover:bg-white/20 text-white rounded-lg border border-white/20 transition-all duration-300"
+      >
+        <ArrowLeft size={18} />
+        Back to Home
+      </button>
+
       <DeckGL
         initialViewState={viewState}
         controller={true}

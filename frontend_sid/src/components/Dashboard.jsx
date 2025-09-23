@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
 
 function LineChart({ data, title, color }) {
@@ -49,6 +49,44 @@ function LineChart({ data, title, color }) {
             .attr('stroke', color)
             .attr('stroke-width', 2)
             .attr('d', line);
+
+        // Hover interaction: focus circle and tooltip text
+        const focus = svg.append('g')
+            .style('display', 'none');
+        focus.append('circle')
+            .attr('r', 4)
+            .attr('fill', color)
+            .attr('stroke', 'white')
+            .attr('stroke-width', 1.5);
+        const focusText = focus.append('text')
+            .attr('x', 8)
+            .attr('dy', '-0.7em')
+            .attr('fill', '#cfe8ff')
+            .style('font-size', '10px');
+
+        const bisect = d3.bisector(d => d.x).center;
+        function moved(event) {
+            const [mx] = d3.pointer(event);
+            const dx = x.invert(mx);
+            const i = bisect(data, dx);
+            const d = data[Math.max(0, Math.min(data.length - 1, i))];
+            const px = x(d.x);
+            const py = y(d.y);
+            focus.attr('transform', `translate(${px},${py})`);
+            focusText.text(`${d.x.toFixed(2)}, ${d.y.toFixed(2)}`)
+                .attr('transform', `translate(0,0)`);
+        }
+
+        svg.append('rect')
+            .attr('fill', 'transparent')
+            .attr('pointer-events', 'all')
+            .attr('x', margin.left)
+            .attr('y', margin.top)
+            .attr('width', width - margin.left - margin.right)
+            .attr('height', height - margin.top - margin.bottom)
+            .on('mouseenter', () => focus.style('display', null))
+            .on('mousemove', moved)
+            .on('mouseleave', () => focus.style('display', 'none'));
     }, [data]);
 
     return (
@@ -60,17 +98,26 @@ function LineChart({ data, title, color }) {
 }
 
 function Dashboard() {
-    const [records, setRecords] = useState([]);
+    const [allRecords, setAllRecords] = useState([]); // unfiltered baseline
+    const [records, setRecords] = useState([]); // currently displayed
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    // User inputs for filtering
+    const [lat, setLat] = useState(0);
+    const [lon, setLon] = useState(0);
+    const [rangeDeg, setRangeDeg] = useState(''); // radius in degrees (great-circle); empty means no filter
+
+    // Initial load: everything
     useEffect(() => {
         async function load() {
             try {
                 setLoading(true);
                 const res = await fetch('http://localhost:3000/everything');
                 const data = await res.json();
-                setRecords(Array.isArray(data) ? data : []);
+                const arr = Array.isArray(data) ? data : [];
+                setAllRecords(arr);
+                setRecords(arr);
             } catch (e) {
                 setError(e.message || 'Failed to load');
             } finally {
@@ -79,6 +126,51 @@ function Dashboard() {
         }
         load();
     }, []);
+
+    // When filters are finite, fetch from backend /profiles; else show baseline
+    useEffect(() => {
+        const rangeNum = typeof rangeDeg === 'string' ? parseFloat(rangeDeg) : rangeDeg;
+        const hasFinite = Number.isFinite(lat) && Number.isFinite(lon) && Number.isFinite(rangeNum);
+        if (!hasFinite) {
+            setRecords(allRecords);
+            return;
+        }
+        let aborted = false;
+        async function fetchProfiles() {
+            try {
+                setLoading(true);
+                const url = new URL('http://localhost:3000/profiles');
+                url.searchParams.set('lat', String(lat));
+                url.searchParams.set('lon', String(lon));
+                url.searchParams.set('rangeDeg', String(rangeNum));
+                const res = await fetch(url.toString());
+                const data = await res.json();
+                if (!aborted) setRecords(Array.isArray(data) ? data : []);
+            } catch (e) {
+                if (!aborted) setError(e.message || 'Failed to load filtered data');
+            } finally {
+                if (!aborted) setLoading(false);
+            }
+        }
+        fetchProfiles();
+        return () => { aborted = true; };
+    }, [lat, lon, rangeDeg, allRecords]);
+
+    // Angular (great-circle) distance in degrees between two lat/lon points
+    function angularDistanceDeg(lat1, lon1, lat2, lon2) {
+        const toRad = (d) => (d * Math.PI) / 180;
+        const toDeg = (r) => (r * 180) / Math.PI;
+        const φ1 = toRad(lat1);
+        const φ2 = toRad(lat2);
+        const Δλ = toRad(lon2 - lon1);
+        const cosd = Math.sin(φ1) * Math.sin(φ2) + Math.cos(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+        // numerical safety
+        const d = Math.acos(Math.min(1, Math.max(-1, cosd)));
+        return toDeg(d);
+    }
+
+    // No client-side distance filter anymore; use records as-is
+    const filtered = records;
 
     const total = records.length;
     const avgTemp = records.reduce((s, r) => s + (Number(r.temperature) || 0), 0) / (total || 1);
@@ -98,23 +190,79 @@ function Dashboard() {
         );
     }
 
-    const tempData = Array.from({ length: 20 }, (_, i) => ({
-        x: i * 5,
-        y: (Math.random() * 6) + 18,
-    }));
+    // Build series from filtered data: x = depth, y = metric
+    function buildSeries(metricKey) {
+        const pts = filtered
+            .map(r => ({
+                x: Number(r.depth),
+                y: Number(r[metricKey])
+            }))
+            .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y));
+        // Sort by depth ascending
+        pts.sort((a, b) => a.x - b.x);
+        return pts;
+    }
 
-    const salData = Array.from({ length: 20 }, (_, i) => ({
-        x: i * 5,
-        y: (Math.random() * 8) + 30,
-    }));
+    const tempData = useMemo(() => buildSeries('temperature'), [filtered]);
+    const salData = useMemo(() => buildSeries('salinity'), [filtered]);
+    const oxyData = useMemo(() => buildSeries('oxygen'), [filtered]);
 
-    const presData = Array.from({ length: 20 }, (_, i) => ({
-        x: i * 5,
-        y: Math.random() * 1000,
-    }));
+    // Debug sizes (visible in browser console)
+    useEffect(() => {
+        // eslint-disable-next-line no-console
+        console.log('Series sizes -> temp:', tempData.length, 'sal:', salData.length, 'oxy:', oxyData.length, 'filtered:', filtered.length);
+    }, [tempData, salData, oxyData, filtered]);
 
     return (
         <div className="p-6 space-y-6">
+            {/* Filters */}
+            <div className="card p-4 flex flex-col gap-3">
+                <h3 className="text-lg font-semibold">Filter by Location</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div>
+                        <label className="text-white/70 text-sm">Latitude</label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            value={lat}
+                            onChange={(e) => setLat(parseFloat(e.target.value))}
+                            className="mt-1 w-full px-3 py-2 rounded-lg bg-[#061523] border border-white/10 focus:outline-none focus:border-cyan-400/50"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-white/70 text-sm">Longitude</label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            value={lon}
+                            onChange={(e) => setLon(parseFloat(e.target.value))}
+                            className="mt-1 w-full px-3 py-2 rounded-lg bg-[#061523] border border-white/10 focus:outline-none focus:border-cyan-400/50"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-white/70 text-sm">Range (degrees)</label>
+                        <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            placeholder="Leave empty for no filter"
+                            value={rangeDeg}
+                            onChange={(e) => {
+                                const v = e.target.value;
+                                if (v === '') setRangeDeg('');
+                                else setRangeDeg(parseFloat(v));
+                            }}
+                            className="mt-1 w-full px-3 py-2 rounded-lg bg-[#061523] border border-white/10 focus:outline-none focus:border-cyan-400/50"
+                        />
+                    </div>
+                    <div className="flex items-end">
+                        <div className="text-white/70">
+                            Matching records: <span className="text-cyan-300 font-semibold">{filtered.length}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard label="Records" value={total || 0} unit="" />
                 <StatCard label="Avg Temp" value={avgTemp.toFixed(2)} unit="°C" />
@@ -126,17 +274,21 @@ function Dashboard() {
             {loading && <div className="card p-4">Loading live data...</div>}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <LineChart
-                title="Temperature vs Depth"
-                data={tempData}
-                color="cyan"
-            />
-            <LineChart
-                title="Salinity vs Depth"
-                data={salData}
-                color="orange"
-            />
-            <LineChart title="Pressure vs Depth" data={presData} color="lime" />
+                {tempData.length > 0 ? (
+                    <LineChart title="Temperature vs Depth" data={tempData} color="cyan" />
+                ) : (
+                    <div className="card p-4 flex items-center justify-center min-h-[220px]">No data for Temperature</div>
+                )}
+                {salData.length > 0 ? (
+                    <LineChart title="Salinity vs Depth" data={salData} color="orange" />
+                ) : (
+                    <div className="card p-4 flex items-center justify-center min-h-[220px]">No data for Salinity</div>
+                )}
+                {oxyData.length > 0 ? (
+                    <LineChart title="Oxygen vs Depth" data={oxyData} color="lime" />
+                ) : (
+                    <div className="card p-4 flex items-center justify-center min-h-[220px]">No data for Oxygen</div>
+                )}
             </div>
         </div>
     );

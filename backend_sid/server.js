@@ -4,6 +4,7 @@ const app = express();
 const port = 3000;
 const cors = require("cors");
 app.use(cors());
+app.use(express.json({ limit: '1mb' }));
 
 client.connect();
 
@@ -102,6 +103,39 @@ app.get("/depth", async (req, res) => {
   }
 });
 
+// Query profiles within latitude/longitude ± rangeDeg (degrees)
+app.get("/profiles", async (req, res) => {
+  try {
+    const { lat, lon, rangeDeg } = req.query;
+    const latNum = parseFloat(lat);
+    const lonNum = parseFloat(lon);
+    const rangeNum = parseFloat(rangeDeg);
+
+    if (!Number.isFinite(latNum) || !Number.isFinite(lonNum) || !Number.isFinite(rangeNum)) {
+      return res.status(400).json({ error: "lat, lon, rangeDeg (numbers) are required" });
+    }
+
+    const latMin = latNum - rangeNum;
+    const latMax = latNum + rangeNum;
+    const lonMin = lonNum - rangeNum;
+    const lonMax = lonNum + rangeNum;
+
+    const result = await client.query(
+      `SELECT latitude, longitude, depth, temperature, salinity, oxygen, time_ts
+       FROM t1
+       WHERE latitude BETWEEN $1 AND $2
+         AND longitude BETWEEN $3 AND $4
+         AND depth IS NOT NULL
+       ORDER BY time_ts ASC, depth ASC
+       LIMIT 5000`,
+      [latMin, latMax, lonMin, lonMax]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/time", async (req, res) => {
   try {
     const result = await client.query(
@@ -110,6 +144,35 @@ app.get("/time", async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Simple proxy to Google Gemini for chat
+app.post('/ai/chat', async (req, res) => {
+  try {
+    const apiKey = process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'GOOGLE_API_KEY not set on server' });
+    }
+    const { messages = [] } = req.body || {};
+    // Convert simple role/content list to Gemini generateContent format
+    const contents = messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: String(m.content || '') }] }));
+
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents })
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      return res.status(500).json({ error: 'Gemini API error', details: errText });
+    }
+    const data = await resp.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    res.json({ text });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Chat failed' });
   }
 });
 

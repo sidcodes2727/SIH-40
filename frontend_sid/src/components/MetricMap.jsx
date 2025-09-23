@@ -41,6 +41,25 @@ function getColor(value, metric) {
   }
 }
 
+// Legend specification per metric
+function getLegendSpec(metric) {
+  switch (metric) {
+    case 'salinity':
+      return { min: 30, max: 38, unit: 'PSU', label: 'Salinity' };
+    case 'temperature':
+      return { min: 0, max: 30, unit: '°C', label: 'Temperature' };
+    case 'pressure':
+      return { min: 0, max: 1000, unit: 'dbar', label: 'Pressure' };
+    default:
+      return { min: 0, max: 1, unit: '', label: metric };
+  }
+}
+
+function toRgb(c) {
+  const [r, g, b] = c;
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
 export default function MetricMap({ metric = 'salinity' }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const [rows, setRows] = useState([]);
@@ -84,10 +103,30 @@ export default function MetricMap({ metric = 'salinity' }) {
       return getColor(value, metric);
     },
     onHover: (info) => {
-      if (!info || !info.coordinate) { setHoverInfo(null); return; }
+      if (!info || !info.coordinate || !info.object) { 
+        setHoverInfo(null); 
+        return; 
+      }
       setHoverInfo({ x: info.x, y: info.y, coordinate: info.coordinate, object: info.object });
     },
   }), [rows, metric]);
+
+  // Legend gradient background computed from getColor mapping
+  const legend = useMemo(() => {
+    const spec = getLegendSpec(metric);
+    const steps = 12; // number of color stops
+    const stops = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const value = spec.min + t * (spec.max - spec.min);
+      const color = toRgb(getColor(value, metric));
+      const pct = Math.round(t * 100);
+      stops.push(`${color} ${pct}%`);
+    }
+    const gradient = `linear-gradient(90deg, ${stops.join(', ')})`;
+    const mid = (spec.min + spec.max) / 2;
+    return { ...spec, gradient, mid };
+  }, [metric]);
 
   return (
     <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
@@ -99,6 +138,22 @@ export default function MetricMap({ metric = 'salinity' }) {
       >
         <Map mapLib={maplibregl} reuseMaps mapStyle={MAP_STYLE} {...viewState} />
       </DeckGL>
+      {/* Color Legend */}
+      <div
+        style={{ position: 'absolute', left: 12, bottom: 12, width: 260 }}
+        className="card p-3"
+      >
+        <div className="flex items-center justify-between text-xs text-white/70 mb-2">
+          <span>{legend.label} scale</span>
+          <span>{legend.unit}</span>
+        </div>
+        <div className="h-3 w-full rounded" style={{ background: legend.gradient }} />
+        <div className="flex items-center justify-between text-xs text-white/60 mt-1">
+          <span>{legend.min}</span>
+          <span>{legend.mid}</span>
+          <span>{legend.max}</span>
+        </div>
+      </div>
       {hoverInfo && (
         <div
           style={{
