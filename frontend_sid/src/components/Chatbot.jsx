@@ -11,6 +11,12 @@ function Chatbot({ chatOpen, setChatOpen }) {
     const [error, setError] = useState(null);
     const listRef = useRef(null);
 
+    // Optional geospatial context for MCP-style grounding
+    const [lat, setLat] = useState("");
+    const [lon, setLon] = useState("");
+    const [rangeDeg, setRangeDeg] = useState("");
+    const hasContext = Number.isFinite(parseFloat(lat)) && Number.isFinite(parseFloat(lon)) && Number.isFinite(parseFloat(rangeDeg));
+
     useEffect(() => {
         if (!listRef.current) return;
         listRef.current.scrollTop = listRef.current.scrollHeight;
@@ -25,10 +31,14 @@ function Chatbot({ chatOpen, setChatOpen }) {
         setMessages(prev => [...prev, userMsg]);
         setLoading(true);
         try {
-            const res = await fetch('http://localhost:3000/ai/chat', {
+            const endpoint = hasContext ? 'http://localhost:3000/ai/chat_context' : 'http://localhost:3000/ai/chat';
+            const payload = hasContext
+                ? { messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })), lat: parseFloat(lat), lon: parseFloat(lon), rangeDeg: parseFloat(rangeDeg) }
+                : { messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })) };
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })) })
+                body: JSON.stringify(payload)
             });
             const data = await res.json();
             if (!res.ok) {
@@ -69,6 +79,36 @@ function Chatbot({ chatOpen, setChatOpen }) {
                             >
                                 <X />
                             </button>
+                        </div>
+                        {/* Optional Context Controls */}
+                        <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
+                            <input
+                                type="number"
+                                step="0.01"
+                                placeholder="Lat"
+                                value={lat}
+                                onChange={(e) => setLat(e.target.value)}
+                                className="px-2 py-1 rounded bg-[#061523] border border-white/10 focus:outline-none focus:border-cyan-400/50"
+                            />
+                            <input
+                                type="number"
+                                step="0.01"
+                                placeholder="Lon"
+                                value={lon}
+                                onChange={(e) => setLon(e.target.value)}
+                                className="px-2 py-1 rounded bg-[#061523] border border-white/10 focus:outline-none focus:border-cyan-400/50"
+                            />
+                            <input
+                                type="number"
+                                step="0.1"
+                                placeholder="Range°"
+                                value={rangeDeg}
+                                onChange={(e) => setRangeDeg(e.target.value)}
+                                className="px-2 py-1 rounded bg-[#061523] border border-white/10 focus:outline-none focus:border-cyan-400/50"
+                            />
+                            {hasContext && (
+                                <div className="col-span-3 text-white/60">Using context near lat {parseFloat(lat).toFixed(2)}, lon {parseFloat(lon).toFixed(2)} within ±{parseFloat(rangeDeg)}°</div>
+                            )}
                         </div>
                         <div ref={listRef} className="card rounded-xl p-3 grow overflow-y-auto text-sm mb-3 space-y-2">
                             {messages.map(m => (
