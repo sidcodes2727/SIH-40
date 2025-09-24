@@ -5,6 +5,7 @@ import { ScatterplotLayer } from '@deck.gl/layers';
 import { ArrowLeft } from 'lucide-react';
 import maplibregl from 'maplibre-gl';
 import { API_BASE } from '../config';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json';
 
@@ -16,10 +17,11 @@ const INITIAL_VIEW_STATE = {
   bearing: 0,
 };
 
+// Provide sensible fallback points with valid coordinates (near India)
 const fallbackData = [
-  { id: 1, depth: 10, pressure: 5, temperature: 20 },
-  { id: 2, depth: 20, pressure: 10, temperature: 25 },
-  { id: 3, depth: 15, pressure: 7, temperature: 30 },
+  { id: 1, depth: 10, pressure: 5, temperature: 20, latitude: 19.0, longitude: 72.8 },
+  { id: 2, depth: 20, pressure: 10, temperature: 25, latitude: 13.0, longitude: 80.3 },
+  { id: 3, depth: 15, pressure: 7, temperature: 30, latitude: 22.6, longitude: 88.4 },
 ];
 
 export default function OceanMap({ setActivePage }) {
@@ -74,10 +76,20 @@ export default function OceanMap({ setActivePage }) {
     fetchData();
   }, []);
 
+  // Ensure only valid points are passed to DeckGL to avoid runtime errors
+  const safePoints = (data || []).filter(
+    (d) =>
+      d &&
+      Number.isFinite(Number(d.latitude)) &&
+      Number.isFinite(Number(d.longitude)) &&
+      Math.abs(Number(d.latitude)) <= 90 &&
+      Math.abs(Number(d.longitude)) <= 180
+  );
+
   const layers = [
     new ScatterplotLayer({
       id: 'depth-points',
-      data: data,
+      data: safePoints,
       pickable: true,
       stroked: true,
       filled: true,
@@ -119,7 +131,7 @@ export default function OceanMap({ setActivePage }) {
       </button>
 
       <DeckGL
-        initialViewState={viewState}
+        viewState={viewState}
         controller={true}
         layers={layers}
         onViewStateChange={({ viewState }) => setViewState(viewState)}
@@ -128,12 +140,15 @@ export default function OceanMap({ setActivePage }) {
           reuseMaps
           mapLib={maplibregl}
           mapStyle={MAP_STYLE}
-          {...viewState}
-          onMove={(evt) => setViewState(evt.viewState)}
         >
           <NavigationControl position="top-left" />
         </Map>
       </DeckGL>
+      {safePoints.length === 0 && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/10 border border-white/20 text-white/80 px-3 py-1 rounded-md text-sm">
+          No points available to display.
+        </div>
+      )}
       {hoverInfo && (
         <div
           style={{
