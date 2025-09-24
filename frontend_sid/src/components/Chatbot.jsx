@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
+import { API_BASE } from '../config';
 
 function Chatbot({ chatOpen, setChatOpen }) {
     const CONCISE_INSTRUCTIONS = "You are floatCHAT. Answer very concisely (1–2 sentences). Use ARGO data when provided. Include numbers with units. If uncertain, say so briefly.";
@@ -33,7 +34,7 @@ function Chatbot({ chatOpen, setChatOpen }) {
         setMessages(prev => [...prev, userMsg]);
         setLoading(true);
         try {
-            const endpoint = hasContext ? 'http://localhost:3000/ai/chat_context' : 'http://localhost:3000/ai/chat';
+            const endpoint = hasContext ? `${API_BASE}/ai/chat_context` : `${API_BASE}/ai/chat`;
             // Prepend concise instruction message so the model keeps answers short
             const baseMsgs = [{ role: 'user', content: CONCISE_INSTRUCTIONS }, ...messages, userMsg];
             const payload = hasContext

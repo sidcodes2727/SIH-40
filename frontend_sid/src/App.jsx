@@ -14,7 +14,11 @@ function OceanVizApp() {
         <div className="flex min-h-screen text-white bg-gradient-to-b from-[#03263d] to-[#00121e] w-full">
             <Navbar activePage={activePage} setActivePage={setActivePage} />
 
-            <div className={`${['Depth Profiles', 'Home'].includes(activePage) ? 'flex-1 relative overflow-y-auto p-2 bg-white/10 rounded-2xl backdrop-blur-md' : 'flex-1 relative overflow-hidden'}`}>
+            <div className={`${['Depth Profiles', 'Home'].includes(activePage) ? 'flex-1 relative overflow-y-auto p-4 bg-white/10 rounded-2xl backdrop-blur-md' : 'flex-1 relative overflow-hidden'}`}>
+                {/* Sticky page header */}
+                <div className="sticky top-0 z-10 mb-3 -mt-2 -mx-2 px-4 py-3 bg-gradient-to-r from-[#041a2b]/70 to-[#031421]/70 backdrop-blur-md border-b border-white/10 rounded-t-2xl">
+                    <h2 className="text-xl font-semibold tracking-wide">{activePage}</h2>
+                </div>
                 {activePage === 'Depth Profiles' && <Dashboard />}
                 {activePage === 'Home' && <Home setActivePage={setActivePage} />}
                 {activePage === 'Argo Floats' && <OceanMap setActivePage={setActivePage} />}

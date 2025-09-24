@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
+import { API_BASE } from '../config';
 
-function LineChart({ data, title, color }) {
+function LineChart({ data, title, color, xLabel = 'Depth', yLabel = 'Value' }) {
     const svgRef = useRef();
 
     useEffect(() => {
@@ -11,16 +12,32 @@ function LineChart({ data, title, color }) {
         svg.selectAll('*').remove();
 
         const width = 300;
-        const height = 200;
-        const margin = { top: 20, right: 20, bottom: 30, left: 40 };
+        const height = 220;
+        const margin = { top: 20, right: 20, bottom: 34, left: 44 };
 
         const x = d3
             .scaleLinear()
             .domain(d3.extent(data, (d) => d.x))
             .range([margin.left, width - margin.right]);
+        // Compute a robust y-domain from the actual data instead of forcing baseline at 0.
+        // This prevents the line from visually collapsing near y=0 when the dataset grows
+        // or includes large outliers.
+        const yExtent = d3.extent(data, (d) => d.y);
+        let yMin = yExtent[0];
+        let yMax = yExtent[1];
+        if (!Number.isFinite(yMin) || !Number.isFinite(yMax)) {
+            yMin = 0;
+            yMax = 1;
+        }
+        // If all values are identical, pad the domain slightly so the line is visible
+        if (yMin === yMax) {
+            const pad = Math.abs(yMin) > 0 ? Math.abs(yMin) * 0.05 : 1; // 5% or 1 unit
+            yMin -= pad;
+            yMax += pad;
+        }
         const y = d3
             .scaleLinear()
-            .domain([0, d3.max(data, (d) => d.y)])
+            .domain([yMin, yMax])
             .nice()
             .range([height - margin.bottom, margin.top]);
 
@@ -28,6 +45,18 @@ function LineChart({ data, title, color }) {
             .line()
             .x((d) => x(d.x))
             .y((d) => y(d.y));
+
+        // Gridlines
+        const yGrid = d3.axisLeft(y)
+            .tickSize(-(width - margin.left - margin.right))
+            .tickFormat('');
+        svg.append('g')
+            .attr('transform', `translate(${margin.left},0)`)
+            .attr('class', 'grid')
+            .call(yGrid)
+            .selectAll('line')
+            .attr('stroke', 'rgba(139,161,183,0.12)');
+        svg.selectAll('.grid path').remove();
 
         const xAxis = svg.append('g')
             .attr('transform', `translate(0,${height - margin.bottom})`)
@@ -87,12 +116,29 @@ function LineChart({ data, title, color }) {
             .on('mouseenter', () => focus.style('display', null))
             .on('mousemove', moved)
             .on('mouseleave', () => focus.style('display', 'none'));
+
+        // Axis labels
+        svg.append('text')
+            .attr('x', (width) / 2)
+            .attr('y', height - 6)
+            .attr('text-anchor', 'middle')
+            .attr('fill', '#8ba1b7')
+            .style('font-size', '11px')
+            .text(xLabel);
+        svg.append('text')
+            .attr('transform', 'rotate(-90)')
+            .attr('x', -(height / 2))
+            .attr('y', 14)
+            .attr('text-anchor', 'middle')
+            .attr('fill', '#8ba1b7')
+            .style('font-size', '11px')
+            .text(yLabel);
     }, [data]);
 
     return (
         <div className="card p-4">
             <h3 className="text-lg font-semibold mb-2">{title}</h3>
-            <svg ref={svgRef} width={300} height={200}></svg>
+            <svg ref={svgRef} width={300} height={220}></svg>
         </div>
     );
 }
@@ -113,7 +159,7 @@ function Dashboard() {
         async function load() {
             try {
                 setLoading(true);
-                const res = await fetch('http://localhost:3000/everything');
+                const res = await fetch(`${API_BASE}/everything`);
                 const data = await res.json();
                 const arr = Array.isArray(data) ? data : [];
                 setAllRecords(arr);
@@ -139,7 +185,7 @@ function Dashboard() {
         async function fetchProfiles() {
             try {
                 setLoading(true);
-                const url = new URL('http://localhost:3000/profiles');
+                const url = new URL(`${API_BASE}/profiles`);
                 url.searchParams.set('lat', String(lat));
                 url.searchParams.set('lon', String(lon));
                 url.searchParams.set('rangeDeg', String(rangeNum));
@@ -271,21 +317,40 @@ function Dashboard() {
             </div>
 
             {error && <div className="card p-4 text-red-300">Error: {error}</div>}
-            {loading && <div className="card p-4">Loading live data...</div>}
+            {loading && (
+                <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="card p-5 animate-pulse">
+                                <div className="h-3 w-24 bg-white/10 rounded mb-3" />
+                                <div className="h-7 w-32 bg-white/10 rounded" />
+                            </div>
+                        ))}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {[...Array(3)].map((_, i) => (
+                            <div key={i} className="card p-4 animate-pulse">
+                                <div className="h-4 w-40 bg-white/10 rounded mb-3" />
+                                <div className="h-[220px] w-full bg-white/5 rounded" />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {tempData.length > 0 ? (
-                    <LineChart title="Temperature vs Depth" data={tempData} color="cyan" />
+                    <LineChart title="Temperature vs Depth" data={tempData} color="cyan" xLabel="Depth" yLabel="Temperature (°C)" />
                 ) : (
                     <div className="card p-4 flex items-center justify-center min-h-[220px]">No data for Temperature</div>
                 )}
                 {salData.length > 0 ? (
-                    <LineChart title="Salinity vs Depth" data={salData} color="orange" />
+                    <LineChart title="Salinity vs Depth" data={salData} color="orange" xLabel="Depth" yLabel="Salinity (PSU)" />
                 ) : (
                     <div className="card p-4 flex items-center justify-center min-h-[220px]">No data for Salinity</div>
                 )}
                 {oxyData.length > 0 ? (
-                    <LineChart title="Oxygen vs Depth" data={oxyData} color="lime" />
+                    <LineChart title="Oxygen vs Depth" data={oxyData} color="lime" xLabel="Depth" yLabel="Oxygen" />
                 ) : (
                     <div className="card p-4 flex items-center justify-center min-h-[220px]">No data for Oxygen</div>
                 )}

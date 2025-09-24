@@ -3,6 +3,7 @@ import Map from 'react-map-gl/maplibre';
 import DeckGL from '@deck.gl/react';
 import { ScatterplotLayer } from '@deck.gl/layers';
 import maplibregl from 'maplibre-gl';
+import { API_BASE } from '../config';
 
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json';
 
@@ -10,7 +11,7 @@ const INITIAL_VIEW_STATE = { longitude: 0, latitude: 0, zoom: 2, pitch: 0, beari
 
 // Simple color ramps per metric
 function getColor(value, metric) {
-  if (value == null) return [180, 180, 180];
+  if (!Number.isFinite(value)) value = 0;
   switch (metric) {
     case 'salinity': {
       // 30-38 PSU mapped to cyan-blue
@@ -70,7 +71,7 @@ export default function MetricMap({ metric = 'salinity' }) {
     async function load() {
       try {
         setError(null);
-        const res = await fetch(`http://localhost:3000/${metric}`);
+        const res = await fetch(`${API_BASE}/${metric}`);
         const data = await res.json();
         const cleaned = (Array.isArray(data) ? data : []).filter(
           d => d.latitude != null && d.longitude != null && Math.abs(d.latitude) <= 90 && Math.abs(d.longitude) <= 360
@@ -94,12 +95,13 @@ export default function MetricMap({ metric = 'salinity' }) {
     pickable: true,
     opacity: 0.85,
     radiusScale: 10,
-    radiusMinPixels: 2,
-    radiusMaxPixels: 30,
+    radiusMinPixels: 5,
+    radiusMaxPixels: 50,
     getPosition: (d) => [Number(d.longitude) > 180 ? Number(d.longitude) - 360 : Number(d.longitude), Number(d.latitude)],
-    getRadius: (d) => 4 + 2,
+    getRadius: () => 6,
     getFillColor: (d) => {
-      const value = Number(d[metric]) ?? Number(d.value);
+      const raw = d[metric] ?? d.value;
+      const value = Number.isFinite(Number(raw)) ? Number(raw) : 0;
       return getColor(value, metric);
     },
     onHover: (info) => {
@@ -171,13 +173,13 @@ export default function MetricMap({ metric = 'salinity' }) {
           {hoverInfo.object ? (
             <div className="text-white/75">
               {metric === 'temperature' && (
-                <div>Temperature: <span className="text-cyan-300 font-semibold">{Number(hoverInfo.object.temperature).toFixed(2)}</span> °C</div>
+                <div>Temperature: <span className="text-cyan-300 font-semibold">{(Number.isFinite(Number(hoverInfo.object.temperature)) ? Number(hoverInfo.object.temperature) : 0).toFixed(2)}</span> °C</div>
               )}
               {metric === 'salinity' && (
-                <div>Salinity: <span className="text-cyan-300 font-semibold">{Number(hoverInfo.object.salinity).toFixed(2)}</span> PSU</div>
+                <div>Salinity: <span className="text-cyan-300 font-semibold">{(Number.isFinite(Number(hoverInfo.object.salinity)) ? Number(hoverInfo.object.salinity) : 0).toFixed(2)}</span> PSU</div>
               )}
               {metric === 'pressure' && (
-                <div>Pressure: <span className="text-cyan-300 font-semibold">{Number(hoverInfo.object.pressure).toFixed(2)}</span> dbar</div>
+                <div>Pressure: <span className="text-cyan-300 font-semibold">{(Number.isFinite(Number(hoverInfo.object.pressure)) ? Number(hoverInfo.object.pressure) : 0).toFixed(2)}</span> dbar</div>
               )}
             </div>
           ) : (

@@ -5,11 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#02111d" />
-    <meta name="description" content="OceanViz — dark, modern UI for ocean data exploration" />
-    <title>OceanViz • Ocean Data Explorer</title>
+    <meta name="description" content="floatCHAT — dark, modern UI for ocean data exploration" />
+    <title>floatCHAT</title>
   </head>
   <body>
     <div id="root"></div>
+    <!-- Dev helper: point API to backend on port 3001 when running on localhost -->
+    <script>
+      (function(){
+        try {
+          if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+            window.__API_BASE__ = 'http://localhost:3001';
+          }
+        } catch (e) { /* noop */ }
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

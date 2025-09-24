@@ -1,7 +1,8 @@
+require('dotenv').config();
 const express = require("express");
 const client = require("./database/db");
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3001;
 const cors = require("cors");
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
@@ -11,6 +12,24 @@ client.connect();
 app.get("/", (req, res) => {
   res.send("🌊 ARGO Backend API is running!");
 });
+
+// Helper: normalize metrics to numbers with nulls -> 0
+function normalizeMetrics(row) {
+  const out = { ...row };
+  const coerce = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return 0;
+    // Guard against sentinel extremes sometimes used in datasets
+    if (Math.abs(n) > 1e6) return 0;
+    return n;
+  };
+  if ('temperature' in out) out.temperature = coerce(out.temperature);
+  if ('salinity' in out) out.salinity = coerce(out.salinity);
+  if ('oxygen' in out) out.oxygen = coerce(out.oxygen);
+  if ('pressure' in out) out.pressure = coerce(out.pressure);
+  if ('depth' in out) out.depth = coerce(out.depth);
+  return out;
+}
 
 // Chat with contextual data from Postgres near given lat/lon ± rangeDeg (degrees)
 app.post('/ai/chat_context', async (req, res) => {
@@ -41,7 +60,7 @@ app.post('/ai/chat_context', async (req, res) => {
                ORDER BY time_ts DESC, depth ASC
                LIMIT $5`;
     const db = await client.query(q, [latMin, latMax, lonMin, lonMax, Math.max(1, Math.min(1000, Number(limit) || 100))]);
-    const rows = db.rows || [];
+    const rows = (db.rows || []).map(normalizeMetrics);
 
     // Summarize basic stats to keep prompt small
     const nums = (arr) => arr.map(Number).filter(n => Number.isFinite(n));
@@ -93,7 +112,8 @@ app.get("/everything", async (req, res) => {
     const result = await client.query(
       "SELECT * FROM t1 ORDER BY time_ts ASC, latitude ASC, longitude ASC LIMIT 100"
     );
-    res.json(result.rows);
+    const rows = (result.rows || []).map(normalizeMetrics);
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -106,7 +126,8 @@ app.get("/latlong", async (req, res) => {
       "SELECT * FROM t1 WHERE latitude=$1 AND longitude=$2 ORDER BY time_ts ASC, depth ASC LIMIT 50",
       [lat, lon]
     );
-    res.json(result.rows);
+    const rows = (result.rows || []).map(normalizeMetrics);
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -116,9 +137,10 @@ app.get("/latlong", async (req, res) => {
 app.get("/temperature", async (req, res) => {
   try {
     const result = await client.query(
-      "SELECT latitude, longitude, temperature FROM t1 WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND temperature IS NOT NULL ORDER BY time_ts ASC, latitude ASC, longitude ASC LIMIT 5000"
+      "SELECT latitude, longitude, temperature FROM t1 WHERE latitude IS NOT NULL AND longitude IS NOT NULL ORDER BY time_ts ASC, latitude ASC, longitude ASC LIMIT 5000"
     );
-    res.json(result.rows);
+    const rows = (result.rows || []).map(normalizeMetrics);
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -129,7 +151,8 @@ app.get("/pressure", async (req, res) => {
     const result = await client.query(
       "SELECT latitude, longitude, pressure FROM t1 WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND pressure IS NOT NULL ORDER BY time_ts ASC, latitude ASC, longitude ASC LIMIT 5000"
     );
-    res.json(result.rows);
+    const rows = (result.rows || []).map(normalizeMetrics);
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -138,9 +161,10 @@ app.get("/pressure", async (req, res) => {
 app.get("/salinity", async (req, res) => {
   try {
     const result = await client.query(
-      "SELECT latitude, longitude, salinity FROM t1 WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND salinity IS NOT NULL ORDER BY time_ts ASC, latitude ASC, longitude ASC LIMIT 5000"
+      "SELECT latitude, longitude, salinity FROM t1 WHERE latitude IS NOT NULL AND longitude IS NOT NULL ORDER BY time_ts ASC, latitude ASC, longitude ASC LIMIT 5000"
     );
-    res.json(result.rows);
+    const rows = (result.rows || []).map(normalizeMetrics);
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -149,9 +173,10 @@ app.get("/salinity", async (req, res) => {
 app.get("/oxygen", async (req, res) => {
   try {
     const result = await client.query(
-      "SELECT latitude, longitude, oxygen FROM t1 WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND oxygen IS NOT NULL ORDER BY time_ts ASC, latitude ASC, longitude ASC LIMIT 5000"
+      "SELECT latitude, longitude, oxygen FROM t1 WHERE latitude IS NOT NULL AND longitude IS NOT NULL ORDER BY time_ts ASC, latitude ASC, longitude ASC LIMIT 5000"
     );
-    res.json(result.rows);
+    const rows = (result.rows || []).map(normalizeMetrics);
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -162,6 +187,7 @@ app.get("/nitrate", async (req, res) => {
     const result = await client.query(
       "SELECT latitude, longitude, nitrate FROM t1 WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND nitrate IS NOT NULL ORDER BY time_ts ASC, latitude ASC, longitude ASC LIMIT 5000"
     );
+    // Nitrate is left as-is; no normalization to 0 requested
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -173,7 +199,8 @@ app.get("/depth", async (req, res) => {
     const result = await client.query(
       "SELECT latitude, longitude, depth FROM t1 WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND depth IS NOT NULL ORDER BY time_ts ASC, latitude ASC, longitude ASC LIMIT 5000"
     );
-    res.json(result.rows);
+    const rows = (result.rows || []).map(normalizeMetrics);
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -206,7 +233,8 @@ app.get("/profiles", async (req, res) => {
        LIMIT 5000`,
       [latMin, latMax, lonMin, lonMax]
     );
-    res.json(result.rows);
+    const rows = (result.rows || []).map(normalizeMetrics);
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

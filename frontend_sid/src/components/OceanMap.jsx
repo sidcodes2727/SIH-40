@@ -4,6 +4,7 @@ import DeckGL from '@deck.gl/react';
 import { ScatterplotLayer } from '@deck.gl/layers';
 import { ArrowLeft } from 'lucide-react';
 import maplibregl from 'maplibre-gl';
+import { API_BASE } from '../config';
 
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json';
 
@@ -29,7 +30,7 @@ export default function OceanMap({ setActivePage }) {
   useEffect(() => {
     async function fetchData() {
       try {
-        const response = await fetch('http://localhost:3000/depth');
+        const response = await fetch(`${API_BASE}/depth`);
         const rawData = await response.json();
 
         console.log('Fetched data sample:', rawData[0]);
