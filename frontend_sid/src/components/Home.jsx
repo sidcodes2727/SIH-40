@@ -1,7 +1,7 @@
 import React from 'react';
-import { MapPin, Waves, BarChart3 } from 'lucide-react';
+import { MapPin, Waves, BarChart3, Bot } from 'lucide-react';
 
-export default function Home({ setActivePage }) {
+export default function Home({ setActivePage, setChatOpen }) {
   return (
     <div className="flex-1 p-8 overflow-hidden">
       <div className="max-w-4xl mx-auto">
@@ -15,14 +15,24 @@ export default function Home({ setActivePage }) {
             Discover temperature patterns, salinity levels, and pressure variations across the globe.
           </p>
           
-          {/* Map Button */}
-          <button
-            onClick={() => setActivePage('Argo Floats')}
-            className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-          >
-            <MapPin size={24} />
-            Explore Ocean Map
-          </button>
+          {/* Primary Actions */}
+          <div className="flex items-center justify-center gap-4 flex-wrap">
+            <button
+              onClick={() => setActivePage('Argo Floats')}
+              className="inline-flex items-center gap-3 px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+            >
+              <MapPin size={22} />
+              Explore Ocean Map
+            </button>
+            <button
+              onClick={() => setChatOpen?.(true)}
+              className="inline-flex items-center gap-3 px-6 sm:px-8 py-3 sm:py-4 hover:from-fuchsia-500 hover:to-purple-500 text-cyan-400 font-semibold rounded-xl shadow-lg hover:shadow-xl border-cyan-400 border-2 transition-all duration-300 transform hover:scale-105"
+              aria-label="Open chatbot assistant"
+            >
+              <Bot size={22} />
+              Chatbot Assistant
+            </button>
+          </div>
         </div>
 
         {/* Feature Cards */}

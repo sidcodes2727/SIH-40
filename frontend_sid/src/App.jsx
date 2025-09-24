@@ -16,7 +16,7 @@ function OceanVizApp() {
 
             <div className={`${['Depth Profiles', 'Home'].includes(activePage) ? 'flex-1 relative overflow-y-auto p-4 bg-white/10 rounded-2xl backdrop-blur-md mx-4 md:mx-6 mt-4' : 'flex-1 relative overflow-hidden mx-0 md:mx-0 mt-4'}`}>
                 {activePage === 'Depth Profiles' && <Dashboard />}
-                {activePage === 'Home' && <Home setActivePage={setActivePage} />}
+                {activePage === 'Home' && <Home setActivePage={setActivePage} setChatOpen={setChatOpen} />}
                 {activePage === 'Argo Floats' && <OceanMap setActivePage={setActivePage} />}
                 {activePage === 'Salinity' && <MetricMap metric="salinity" />}
                 {activePage === 'Temperature' && <MetricMap metric="temperature" />}

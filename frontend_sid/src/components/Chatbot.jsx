@@ -85,7 +85,7 @@ function Chatbot({ chatOpen, setChatOpen }) {
                                 className="text-white hover:bg-white/10 p-1 rounded"
                                 onClick={() => setChatOpen(false)}
                             >
-                                <X />
+                                <X className ="hover:text-decoration-none"/>
                             </button>
                         </div>
                         {/* Optional Context Controls */}
