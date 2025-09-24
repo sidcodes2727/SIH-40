@@ -19,9 +19,8 @@ function LineChart({ data, title, color, xLabel = 'Depth', yLabel = 'Value' }) {
             .scaleLinear()
             .domain(d3.extent(data, (d) => d.x))
             .range([margin.left, width - margin.right]);
-        // Compute a robust y-domain from the actual data instead of forcing baseline at 0.
-        // This prevents the line from visually collapsing near y=0 when the dataset grows
-        // or includes large outliers.
+        
+
         const yExtent = d3.extent(data, (d) => d.y);
         let yMin = yExtent[0];
         let yMax = yExtent[1];
@@ -29,9 +28,9 @@ function LineChart({ data, title, color, xLabel = 'Depth', yLabel = 'Value' }) {
             yMin = 0;
             yMax = 1;
         }
-        // If all values are identical, pad the domain slightly so the line is visible
+        
         if (yMin === yMax) {
-            const pad = Math.abs(yMin) > 0 ? Math.abs(yMin) * 0.05 : 1; // 5% or 1 unit
+            const pad = Math.abs(yMin) > 0 ? Math.abs(yMin) * 0.05 : 1; 
             yMin -= pad;
             yMax += pad;
         }
@@ -144,12 +143,12 @@ function LineChart({ data, title, color, xLabel = 'Depth', yLabel = 'Value' }) {
 }
 
 function Dashboard() {
-    const [allRecords, setAllRecords] = useState([]); // unfiltered baseline
-    const [records, setRecords] = useState([]); // currently displayed
+    const [allRecords, setAllRecords] = useState([]); 
+    const [records, setRecords] = useState([]); 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // User inputs for filtering
+    
     const [lat, setLat] = useState(0);
     const [lon, setLon] = useState(0);
     const [rangeDeg, setRangeDeg] = useState(''); // radius in degrees (great-circle); empty means no filter

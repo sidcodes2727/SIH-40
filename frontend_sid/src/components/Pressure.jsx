@@ -125,7 +125,7 @@ function PressureGraph({ data, title, color }) {
 
     return (
         <div className="card p-6">
-            <h2 className="text-2xl font-bold mb-4 text-center text-cyan-300">{title}</h2>
+            
             <svg ref={svgRef} width={800} height={400}></svg>
         </div>
     );

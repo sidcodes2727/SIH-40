@@ -10,7 +10,7 @@ const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-styl
 
 const INITIAL_VIEW_STATE = { longitude: 0, latitude: 0, zoom: 2, pitch: 0, bearing: 0 };
 
-// Natural Earth (land polygons) – used as a mask so heatmap stays over water
+
 const LAND_GEOJSON_URL = 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson';
 
 
@@ -18,11 +18,13 @@ function getColor(value, metric) {
   if (!Number.isFinite(value)) value = 0;
   switch (metric) {
     case 'salinity': {
-      
+      // 30-38 PSU mapped to purple shades ending at #b103fc
       const t = Math.max(0, Math.min(1, (value - 30) / 8));
-      const r = 0;
-      const g = Math.floor(150 + 80 * t);
-      const b = Math.floor(200 + 40 * t);
+      const start = [220, 190, 255]; // light lavender
+      const end = [177, 3, 252];     // #b103fc
+      const r = Math.round(start[0] + (end[0] - start[0]) * t);
+      const g = Math.round(start[1] + (end[1] - start[1]) * t);
+      const b = Math.round(start[2] + (end[2] - start[2]) * t);
       return [r, g, b];
     }
     case 'temperature': {
@@ -34,11 +36,11 @@ function getColor(value, metric) {
       return [r, g, b];
     }
     case 'pressure': {
-      // 0-1000 from teal to violet
+      // 0-1000 dbar from teal to magenta
       const t = Math.max(0, Math.min(1, value / 1000));
-      const r = Math.floor(120 + 100 * t);
-      const g = Math.floor(220 - 120 * t);
-      const b = Math.floor(255 * t);
+      const r = Math.floor(20 + 235 * t);    // 20 -> 255
+      const g = Math.floor(200 - 160 * t);   // 200 -> 40
+      const b = Math.floor(180 + 60 * t);    // 180 -> 240
       return [r, g, b];
     }
     default:
@@ -138,6 +140,27 @@ export default function MetricMap({ metric = 'salinity' }) {
     [255, 200, 20, 255]
   ]), []);
 
+  // Salinity palette (teal -> cyan -> blue -> purple)
+  const SALINITY_RANGE = useMemo(() => ([
+    [240, 220, 255, 255], // very light lavender
+    [230, 200, 255, 255],
+    [215, 170, 255, 255],
+    [200, 140, 255, 255],
+    [190, 100, 255, 255],
+    [183, 50, 253, 255],
+    [177, 3, 252, 255]   // #b103fc
+  ]), []);
+
+  // Pressure palette (teal -> green -> yellow -> orange -> magenta)
+  const PRESSURE_RANGE = useMemo(() => ([
+    [20, 160, 180, 255],
+    [40, 200, 140, 255],
+    [180, 210, 60, 255],
+    [230, 160, 40, 255],
+    [240, 100, 80, 255],
+    [250, 60, 160, 255]
+  ]), []);
+
   // Heatmap layer for continuous surface
   const heatmapLayer = useMemo(() => new HeatmapLayer({
     id: `${metric}-heat`,
@@ -154,9 +177,9 @@ export default function MetricMap({ metric = 'salinity' }) {
     radiusPixels: Math.max(18, Math.min(90, Math.round(18 * (viewState?.zoom || 2)))),
     intensity: 1.0,
     threshold: 0.05,
-    colorRange: TEMP_RANGE,
+    colorRange: metric === 'salinity' ? SALINITY_RANGE : metric === 'pressure' ? PRESSURE_RANGE : TEMP_RANGE,
     weightsTextureSize: 512,
-  }), [rows, metric, viewState, TEMP_RANGE]);
+  }), [rows, metric, viewState, TEMP_RANGE, SALINITY_RANGE, PRESSURE_RANGE]);
 
   // Black dot markers for actual coordinates
   const pointsLayer = useMemo(() => new ScatterplotLayer({

@@ -153,7 +153,7 @@ function Salinity() {
             <SalinityGraph
                 title="Salinity vs Depth Profile"
                 data={salinityData}
-                color="#2dd4ff"
+                color="#b103fc"
             />
             
             <div className="mt-6 card p-4 max-w-4xl">
