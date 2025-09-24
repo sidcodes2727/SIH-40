@@ -98,9 +98,9 @@ export default function OceanMap({ setActivePage }) {
         return [r, g, b];
       },
       onHover: (info) => {
-        if (!info || !info.coordinate || !info.object) { 
-          setHoverInfo(null); 
-          return; 
+        if (!info || !info.coordinate || !info.object) {
+          setHoverInfo(null);
+          return;
         }
         setHoverInfo({ x: info.x, y: info.y, coordinate: info.coordinate, object: info.object });
       },

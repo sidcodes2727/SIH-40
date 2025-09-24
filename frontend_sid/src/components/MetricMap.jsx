@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Map from 'react-map-gl/maplibre';
 import DeckGL from '@deck.gl/react';
-import { ScatterplotLayer } from '@deck.gl/layers';
+import { ScatterplotLayer, GeoJsonLayer } from '@deck.gl/layers';
+import { HeatmapLayer } from '@deck.gl/aggregation-layers';
 import maplibregl from 'maplibre-gl';
 import { API_BASE } from '../config';
 
@@ -9,12 +10,15 @@ const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-styl
 
 const INITIAL_VIEW_STATE = { longitude: 0, latitude: 0, zoom: 2, pitch: 0, bearing: 0 };
 
-// Simple color ramps per metric
+// Natural Earth (land polygons) – used as a mask so heatmap stays over water
+const LAND_GEOJSON_URL = 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson';
+
+
 function getColor(value, metric) {
   if (!Number.isFinite(value)) value = 0;
   switch (metric) {
     case 'salinity': {
-      // 30-38 PSU mapped to cyan-blue
+      
       const t = Math.max(0, Math.min(1, (value - 30) / 8));
       const r = 0;
       const g = Math.floor(150 + 80 * t);
@@ -66,6 +70,7 @@ export default function MetricMap({ metric = 'salinity' }) {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState(null);
   const [hoverInfo, setHoverInfo] = useState(null); // {x,y,coordinate,object}
+  const [land, setLand] = useState(null); // Natural Earth land polygons
 
   useEffect(() => {
     async function load() {
@@ -89,29 +94,108 @@ export default function MetricMap({ metric = 'salinity' }) {
     load();
   }, [metric]);
 
-  const layer = useMemo(() => new ScatterplotLayer({
-    id: `${metric}-layer`,
+  // Load land polygons once for masking by overdrawing
+  useEffect(() => {
+    let cancelled = false;
+    async function loadLand() {
+      try {
+        const resp = await fetch(LAND_GEOJSON_URL);
+        if (!resp.ok) return;
+        const gj = await resp.json();
+        if (!cancelled) setLand(gj);
+      } catch (_) {}
+    }
+    loadLand();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Build a robust 6-stop RGBA color range for the heatmap
+  const heatColors = useMemo(() => {
+    const spec = getLegendSpec(metric);
+    const values = [
+      spec.min,
+      spec.min + (spec.max - spec.min) * 0.2,
+      spec.min + (spec.max - spec.min) * 0.4,
+      spec.min + (spec.max - spec.min) * 0.6,
+      spec.min + (spec.max - spec.min) * 0.8,
+      spec.max
+    ];
+    return values.map(v => {
+      const [r, g, b] = getColor(v, metric);
+      return [r, g, b, 255];
+    });
+  }, [metric]);
+
+  // Temperature-like color range (blue -> red) for HeatmapLayer (RGBA)
+  const TEMP_RANGE = useMemo(() => ([
+    [30, 80, 220, 255],
+    [60, 100, 200, 255],
+    [90, 120, 180, 255],
+    [130, 140, 150, 255],
+    [170, 160, 120, 255],
+    [200, 175, 90, 255],
+    [230, 190, 60, 255],
+    [255, 200, 20, 255]
+  ]), []);
+
+  // Heatmap layer for continuous surface
+  const heatmapLayer = useMemo(() => new HeatmapLayer({
+    id: `${metric}-heat`,
+    data: rows,
+    getPosition: (d) => [Number(d.longitude) > 180 ? Number(d.longitude) - 360 : Number(d.longitude), Number(d.latitude)],
+    getWeight: (d) => {
+      const raw = d[metric] ?? d.value;
+      const v = Number.isFinite(Number(raw)) ? Number(raw) : 0;
+      // Normalize per metric range to keep brightness comparable
+      const spec = getLegendSpec(metric);
+      const t = Math.max(0, Math.min(1, (v - spec.min) / (spec.max - spec.min || 1)));
+      return 1 + t; // emphasize higher values slightly
+    },
+    radiusPixels: Math.max(18, Math.min(90, Math.round(18 * (viewState?.zoom || 2)))),
+    intensity: 1.0,
+    threshold: 0.05,
+    colorRange: TEMP_RANGE,
+    weightsTextureSize: 512,
+  }), [rows, metric, viewState, TEMP_RANGE]);
+
+  // Black dot markers for actual coordinates
+  const pointsLayer = useMemo(() => new ScatterplotLayer({
+    id: `${metric}-points`,
     data: rows,
     pickable: true,
-    opacity: 0.85,
+    opacity: 0.95,
     radiusScale: 10,
-    radiusMinPixels: 5,
-    radiusMaxPixels: 50,
+    radiusMinPixels: 3,
+    radiusMaxPixels: 30,
     getPosition: (d) => [Number(d.longitude) > 180 ? Number(d.longitude) - 360 : Number(d.longitude), Number(d.latitude)],
-    getRadius: () => 6,
-    getFillColor: (d) => {
-      const raw = d[metric] ?? d.value;
-      const value = Number.isFinite(Number(raw)) ? Number(raw) : 0;
-      return getColor(value, metric);
-    },
+    getRadius: () => 4,
+    getFillColor: [0, 0, 0], // black dots
+    getLineColor: [255, 255, 255],
+    lineWidthUnits: 'pixels',
+    stroked: true,
+    lineWidthMinPixels: 0.5,
     onHover: (info) => {
-      if (!info || !info.coordinate || !info.object) { 
-        setHoverInfo(null); 
-        return; 
+      if (!info || !info.coordinate || !info.object) {
+        setHoverInfo(null);
+        return;
       }
       setHoverInfo({ x: info.x, y: info.y, coordinate: info.coordinate, object: info.object });
     },
   }), [rows, metric]);
+
+  // Land mask layer (overdraw on top to hide heat on land)
+  const landMask = useMemo(() => {
+    if (!land) return null;
+    return new GeoJsonLayer({
+      id: 'land-mask',
+      data: land,
+      stroked: false,
+      filled: true,
+      getFillColor: [14, 18, 24, 255], // close to basemap land color
+      parameters: { depthTest: false },
+      pickable: false,
+    });
+  }, [land]);
 
   // Legend gradient background computed from getColor mapping
   const legend = useMemo(() => {
@@ -135,7 +219,7 @@ export default function MetricMap({ metric = 'salinity' }) {
       <DeckGL
         initialViewState={viewState}
         controller
-        layers={[layer]}
+        layers={[heatmapLayer, pointsLayer, landMask].filter(Boolean)}
         onViewStateChange={({ viewState }) => setViewState(viewState)}
       >
         <Map mapLib={maplibregl} reuseMaps mapStyle={MAP_STYLE} {...viewState} />
