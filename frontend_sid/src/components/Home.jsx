@@ -1,9 +1,13 @@
 import React from 'react';
 import { MapPin, Waves, BarChart3 } from 'lucide-react';
+import bgImage from '../assets/bg.jpg';
 
 export default function Home({ setActivePage }) {
   return (
-    <div className="flex-1 p-8 overflow-hidden bg-[url('../assets/bg.jpg')] bg-cover bg-center">
+    <div
+      className="flex-1 p-8 overflow-hidden bg-cover bg-center"
+      style={{ backgroundImage: `url(${bgImage})` }}
+    >
       <div className="max-w-4xl mx-auto">
         {/* Hero Section */}
         <div className="text-center mb-12">

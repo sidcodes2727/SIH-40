@@ -4,6 +4,7 @@ import DeckGL from '@deck.gl/react';
 import { ScatterplotLayer } from '@deck.gl/layers';
 import { ArrowLeft } from 'lucide-react';
 import maplibregl from 'maplibre-gl';
+import { loadScales } from '../config/scales';
 
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json';
 
@@ -73,6 +74,7 @@ export default function OceanMap({ setActivePage }) {
     fetchData();
   }, []);
 
+  const depthSpec = loadScales().depth; // use centralized scale for depth
   const layers = [
     new ScatterplotLayer({
       id: 'depth-points',
@@ -89,8 +91,8 @@ export default function OceanMap({ setActivePage }) {
       getFillColor: (d) => {
         const z = Number(d.depth);
         if (!Number.isFinite(z)) return [150, 150, 150];
-        // Shallow -> bright cyan, Deep -> dark blue
-        const t = Math.max(0, Math.min(1, z / 5000));
+        // Shallow -> bright cyan, Deep -> dark blue, based on configured min/max
+        const t = Math.max(0, Math.min(1, (z - depthSpec.min) / (depthSpec.max - depthSpec.min)));
         const r = 0;
         const g = Math.floor(200 - 120 * t);
         const b = Math.floor(255 - 80 * t);

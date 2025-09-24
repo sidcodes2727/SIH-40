@@ -3,7 +3,15 @@ const path = require('path');
 const netcdfjs = require('netcdfjs');
 const client = require('./database/db');
 
-const argoRoot = path.join(__dirname, 'Argo data');
+// Allow custom root via CLI: node insert_argo.js --dir "C:\\path\\to\\nc-folder" or first positional arg
+const defaultRoot = path.join(__dirname, 'Argo data');
+const argv = process.argv.slice(2);
+let cliRoot = null;
+const dirIdx = argv.indexOf('--dir');
+if (dirIdx !== -1 && argv[dirIdx + 1]) cliRoot = argv[dirIdx + 1];
+if (!cliRoot) cliRoot = argv.find(a => !a.startsWith('-')) || null;
+const argoRoot = path.resolve(cliRoot || defaultRoot);
+console.log('Ingestion root:', argoRoot);
 
 function getAllNcFiles(dir) {
   let results = [];
