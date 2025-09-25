@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+﻿import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { API_BASE } from '../config';
 
 function Chatbot({ chatOpen, setChatOpen }) {
-    const CONCISE_INSTRUCTIONS = "You are floatCHAT. Answer very concisely (1–2 sentences). Use ARGO data when provided. Include numbers with units. If uncertain, say so briefly.";
+    const CONCISE_INSTRUCTIONS = "You are floatCHAT. Answer very concisely (1â€“2 sentences). Use ARGO data when provided. Include numbers with units. If uncertain, say so briefly.";
     const [messages, setMessages] = useState([
         { id: 1, role: 'assistant', content: 'Hi! I\'m floatCHAT. Ask me about oceanographic data, ARGO floats, or maps.' }
     ]);
@@ -34,7 +34,7 @@ function Chatbot({ chatOpen, setChatOpen }) {
         setMessages(prev => [...prev, userMsg]);
         setLoading(true);
         try {
-            const endpoint = hasContext ? `${API_BASE}/ai/chat_context` : `${API_BASE}/ai/chat`;
+            const endpoint = hasContext ? `${API_BASE}/ai/chat_hybrid` : `${API_BASE}/ai/chat`;
             // Prepend concise instruction message so the model keeps answers short
             const baseMsgs = [{ role: 'user', content: CONCISE_INSTRUCTIONS }, ...messages, userMsg];
             const payload = hasContext
@@ -109,13 +109,13 @@ function Chatbot({ chatOpen, setChatOpen }) {
                             <input
                                 type="number"
                                 step="0.1"
-                                placeholder="Range°"
+                                placeholder="RangeÂ°"
                                 value={rangeDeg}
                                 onChange={(e) => setRangeDeg(e.target.value)}
                                 className="px-2 py-1 rounded bg-[#061523] border border-white/10 focus:outline-none focus:border-cyan-400/50"
                             />
                             {hasContext && (
-                                <div className="col-span-3 text-white/60">Using context near lat {parseFloat(lat).toFixed(2)}, lon {parseFloat(lon).toFixed(2)} within ±{parseFloat(rangeDeg)}°</div>
+                                <div className="col-span-3 text-white/60">Using context near lat {parseFloat(lat).toFixed(2)}, lon {parseFloat(lon).toFixed(2)} within Â±{parseFloat(rangeDeg)}Â°</div>
                             )}
                         </div>
                         <div ref={listRef} className="card rounded-xl p-3 grow overflow-y-auto text-sm mb-3 space-y-2">
@@ -128,13 +128,13 @@ function Chatbot({ chatOpen, setChatOpen }) {
                                 <div className="text-red-300 text-xs">{error}</div>
                             )}
                             {loading && (
-                                <div className="text-white/60 text-xs">Thinking…</div>
+                                <div className="text-white/60 text-xs">Thinkingâ€¦</div>
                             )}
                         </div>
                         <div className="mt-2 flex">
                             <input
                                 type="text"
-                                placeholder="Ask about oceanographic data..."
+                                placeholder="Ask about oceanographic data or aquatic life..."
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={onKeyDown}
