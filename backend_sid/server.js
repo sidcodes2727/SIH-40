@@ -33,6 +33,7 @@ function normalizeMetrics(row) {
 
 // Chat with contextual data from Postgres near given lat/lon ± rangeDeg (degrees)
 app.post('/ai/chat_context', async (req, res) => {
+  console.log('Chat context request received');
   try {
     const apiKey = process.env.GOOGLE_API_KEY;
     if (!apiKey) {
@@ -89,10 +90,14 @@ app.post('/ai/chat_context', async (req, res) => {
     };
     const contents = [contextPreamble, ...userMessages];
 
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
     const resp = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        "x-goog-api-key": apiKey
+
+      },
       body: JSON.stringify({ contents })
     });
     if (!resp.ok) {
@@ -253,8 +258,10 @@ app.get("/time", async (req, res) => {
 
 // Simple proxy to Google Gemini for chat
 app.post('/ai/chat', async (req, res) => {
+  console.log("Recevied");
   try {
     const apiKey = process.env.GOOGLE_API_KEY;
+    console.log(apiKey);
     if (!apiKey) {
       return res.status(500).json({ error: 'GOOGLE_API_KEY not set on server' });
     }
@@ -262,12 +269,16 @@ app.post('/ai/chat', async (req, res) => {
     // Convert simple role/content list to Gemini generateContent format
     const contents = messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: String(m.content || '') }] }));
 
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
     const resp = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        "x-goog-api-key": apiKey
+      },
       body: JSON.stringify({ contents })
     });
+    console.log(resp);
     if (!resp.ok) {
       const errText = await resp.text();
       return res.status(500).json({ error: 'Gemini API error', details: errText });
